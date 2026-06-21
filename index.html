@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ultimate Todo App</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans min-h-screen py-10 px-4">
+
+  <div class="max-w-2xl mx-auto bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden">
+    
+    <div class="p-6 bg-gradient-to-r from-indigo-600 to-purple-600 text-white">
+      <h1 class="text-3xl font-extrabold tracking-tight mb-2 flex items-center gap-2">
+        <i data-lucide="check-square" class="w-8 h-8"></i> Task Master
+      </h1>
+      <p class="text-indigo-100 text-sm mb-4">Stay organized, focused, and productive.</p>
+      
+      <div class="bg-indigo-950/30 rounded-xl p-4 backdrop-blur-xs">
+        <div class="flex justify-between items-center mb-2 text-sm font-semibold">
+          <span>Progress</span>
+          <span id="progress-text">0% Completed</span>
+        </div>
+        <div class="w-full bg-indigo-950/40 rounded-full h-2.5">
+          <div id="progress-bar" class="bg-emerald-400 h-2.5 rounded-full transition-all duration-500" style="width: 0%"></div>
+        </div>
+      </div>
+    </div>
+
+    <form id="todo-form" class="p-6 border-b border-slate-100 bg-slate-50/50">
+      <div class="grid grid-cols-1 md:grid-cols-12 gap-3">
+        <div class="md:col-span-6">
+          <input type="text" id="task-input" placeholder="What needs to be done?" required
+            class="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all text-sm">
+        </div>
+        <div class="md:col-span-3">
+          <select id="priority-input" 
+            class="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-indigo-500 text-sm">
+            <option value="Low">Low</option>
+            <option value="Medium" selected>Medium</option>
+            <option value="High">High</option>
+          </select>
+        </div>
+        <div class="md:col-span-3">
+          <select id="category-input" 
+            class="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-indigo-500 text-sm">
+            <option value="Personal">Personal</option>
+            <option value="Work">Work</option>
+            <option value="Wellness">Wellness</option>
+            <option value="Ideas">Ideas</option>
+          </select>
+        </div>
+      </div>
+      <button type="submit" 
+        class="w-full mt-3 bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2.5 px-4 rounded-lg transition-all shadow-md shadow-indigo-200 flex items-center justify-center gap-2 text-sm cursor-pointer">
+        <i data-lucide="plus" class="w-4 h-4"></i> Add Task
+      </button>
+    </form>
+
+    <div class="px-6 py-4 flex flex-wrap gap-2 items-center justify-between border-b border-slate-100 bg-white">
+      <div class="flex gap-1 bg-slate-100 p-1 rounded-lg text-xs font-medium">
+        <button onclick="setFilter('all')" id="filter-all" class="px-3 py-1.5 rounded-md transition-all cursor-pointer bg-white shadow-xs text-slate-800">All</button>
+        <button onclick="setFilter('active')" id="filter-active" class="px-3 py-1.5 rounded-md transition-all cursor-pointer text-slate-600 hover:text-slate-900">Active</button>
+        <button onclick="setFilter('completed')" id="filter-completed" class="px-3 py-1.5 rounded-md transition-all cursor-pointer text-slate-600 hover:text-slate-900">Completed</button>
+      </div>
+      <span id="task-count" class="text-xs text-slate-500 font-medium">0 tasks remaining</span>
+    </div>
+
+    <ul id="todo-list" class="divide-y divide-slate-100 max-h-[400px] overflow-y-auto">
+      </ul>
+
+    <div id="empty-state" class="p-12 text-center flex flex-col items-center justify-center hidden">
+      <div class="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center text-slate-400 mb-3">
+        <i data-lucide="clipboard-list" class="w-8 h-8"></i>
+      </div>
+      <p class="text-slate-500 font-medium">No tasks found</p>
+      <p class="text-slate-400 text-xs mt-1">Get started by creating a brand new task above!</p>
+    </div>
+
+  </div>
+
+  <script>
+    // Initial State - Set to Empty Array
+    let todos = [];
+    let currentFilter = 'all';
+
+    // Elements
+    const todoForm = document.getElementById('todo-form');
+    const taskInput = document.getElementById('task-input');
+    const priorityInput = document.getElementById('priority-input');
+    const categoryInput = document.getElementById('category-input');
+    const todoListElement = document.getElementById('todo-list');
+    const emptyStateElement = document.getElementById('empty-state');
+    const progressBar = document.getElementById('progress-bar');
+    const progressText = document.getElementById('progress-text');
+    const taskCount = document.getElementById('task-count');
+
+    // Styling maps for design tags
+    const priorityColors = {
+      High: 'bg-rose-50 text-rose-700 border-rose-100',
+      Medium: 'bg-amber-50 text-amber-700 border-amber-100',
+      Low: 'bg-slate-50 text-slate-600 border-slate-200'
+    };
+
+    const categoryColors = {
+      Work: 'bg-blue-50 text-blue-700',
+      Personal: 'bg-purple-50 text-purple-700',
+      Wellness: 'bg-emerald-50 text-emerald-700',
+      Ideas: 'bg-pink-50 text-pink-700'
+    };
+
+    // Main Render Function
+    function render() {
+      // 1. Filtering logic
+      const filteredTodos = todos.filter(todo => {
+        if (currentFilter === 'active') return !todo.completed;
+        if (currentFilter === 'completed') return todo.completed;
+        return true;
+      });
+
+      // 2. Handle Empty States
+      if (filteredTodos.length === 0) {
+        todoListElement.innerHTML = '';
+        emptyStateElement.classList.remove('hidden');
+      } else {
+        emptyStateElement.classList.add('hidden');
+        
+        todoListElement.innerHTML = filteredTodos.map(todo => `
+          <li class="flex items-center justify-between p-4 hover:bg-slate-50 transition-colors group ${todo.completed ? 'opacity-65' : ''}">
+            <div class="flex items-center gap-3 min-w-0 flex-1">
+              <button onclick="toggleTodo(${todo.id})" class="cursor-pointer focus:outline-hidden text-slate-300 hover:text-indigo-600 transition-colors">
+                ${todo.completed 
+                  ? `<i data-lucide="check-circle-2" class="w-6 h-6 text-emerald-500 fill-emerald-50"></i>` 
+                  : `<i data-lucide="circle" class="w-6 h-6 text-slate-300 hover:text-indigo-500"></i>`
+                }
+              </button>
+              
+              <div class="min-w-0 flex-1">
+                <span class="text-sm font-medium block truncate ${todo.completed ? 'line-through text-slate-400' : 'text-slate-700'}">
+                  ${todo.text}
+                </span>
+                
+                <div class="flex gap-1.5 mt-1.5">
+                  <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full border ${priorityColors[todo.priority]}">
+                    ${todo.priority}
+                  </span>
+                  <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full ${categoryColors[todo.category]}">
+                    ${todo.category}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <button onclick="deleteTodo(${todo.id})" 
+              class="text-slate-400 hover:text-rose-500 p-1.5 rounded-md hover:bg-rose-50 opacity-0 group-hover:opacity-100 transition-all cursor-pointer">
+              <i data-lucide="trash-2" class="w-4 h-4"></i>
+            </button>
+          </li>
+        `).join('');
+      }
+
+      // 3. Update Metrics Dashboard
+      const total = todos.length;
+      const completed = todos.filter(t => t.completed).length;
+      const activeCount = total - completed;
+      const percentage = total === 0 ? 0 : Math.round((completed / total) * 100);
+
+      progressBar.style.width = `${percentage}%`;
+      progressText.innerText = `${percentage}% Completed`;
+      taskCount.innerText = `${activeCount} task${activeCount === 1 ? '' : 's'} remaining`;
+
+      // Re-trigger Lucide icon compiler
+      lucide.createIcons();
+    }
+
+    // Event Handlers / Actions
+    todoForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const newTodo = {
+        id: Date.now(),
+        text: taskInput.value.trim(),
+        priority: priorityInput.value,
+        category: categoryInput.value,
+        completed: false
+      };
+      
+      todos.unshift(newTodo); // Add to the top
+      taskInput.value = ''; // Reset input field
+      render();
+    });
+
+    function toggleTodo(id) {
+      todos = todos.map(todo => todo.id === id ? { ...todo, completed: !todo.completed } : todo);
+      render();
+    }
+
+    function deleteTodo(id) {
+      todos = todos.filter(todo => todo.id !== id);
+      render();
+    }
+
+    function setFilter(filterType) {
+      currentFilter = filterType;
+      
+      // Update active UI classes for buttons
+      ['all', 'active', 'completed'].forEach(type => {
+        const btn = document.getElementById(`filter-${type}`);
+        if (type === filterType) {
+          btn.className = "px-3 py-1.5 rounded-md transition-all cursor-pointer bg-white shadow-xs text-slate-800";
+        } else {
+          btn.className = "px-3 py-1.5 rounded-md transition-all cursor-pointer text-slate-600 hover:text-slate-900";
+        }
+      });
+
+      render();
+    }
+
+    // Initial Load
+    render();
+  </script>
+</body>
+</html>
